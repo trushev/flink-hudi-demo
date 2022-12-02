@@ -1,0 +1,57 @@
+version: '2.1'
+services:
+
+  zookeeper:
+    image: wurstmeister/zookeeper:3.4.6
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: wurstmeister/kafka:2.13-2.8.1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: "kafka"
+      KAFKA_ADVERTISED_PORT: "9092"
+      HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "kafka:1:1"
+
+  data-generator:
+    image: apache/data-generator:1
+    build: ./data-generator
+    depends_on:
+      - kafka
+
+  flink-master:
+    image: master-image
+    build: ./docker/master
+    hostname: flink-master
+    container_name: flink-master
+    environment:
+      - INIT_DAEMON_STEP=setup_flink
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - /tmp/send_report:/tmp/send_report
+      - /tmp/flink-checkpoints-directory:/tmp/flink-checkpoints-directory
+      - /tmp/flink-savepoints-directory:/tmp/flink-savepoints-directory
+
+  flink-worker:
+    image: worker-image
+    build: ./flink-job
+    hostname: flink-worker
+    container_name: flink-worker
+    environment:
+      - FLINK_MASTER_PORT_6123_TCP_ADDR=flink-master
+      - FLINK_NUM_TASK_SLOTS=8
+    depends_on:
+      - flink-master
+      - kafka
+    volumes:
+      - /tmp/send_report:/tmp/send_report
+      - /tmp/flink-checkpoints-directory:/tmp/flink-checkpoints-directory
+      - /tmp/flink-savepoints-directory:/tmp/flink-savepoints-directory
