@@ -32,6 +32,8 @@ under the License.
     <artifactId>data-generator</artifactId>
     <version>1.0.0</version>
 
+    <name>data-generator</name>
+
     <url>http://flink.apache.org</url>
     <inceptionYear>2014</inceptionYear>
 

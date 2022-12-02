@@ -4,26 +4,14 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
+@SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
 public class FlinkJob {
     private static final String CHECKPOINTING_OPTION = "checkpointing";
-    private static final String SQL_QUERIES_PATH = "flink-job.sql";
 
     public static void main(String[] args) throws Exception {
-        StreamTableEnvironment tEnv = StreamTableEnvironment.create(executionEnvironment(ParameterTool.fromArgs(args)));
-
         //language=SQL
-        tEnv.executeSql("CREATE TABLE transactions (\n" +
+        String sourceDDL = "" +
+                "CREATE TABLE transactions (\n" +
                 "    account_id  BIGINT,\n" +
                 "    amount      BIGINT,\n" +
                 "    transaction_time TIMESTAMP(3),\n" +
@@ -34,36 +22,40 @@ public class FlinkJob {
                 "    'properties.bootstrap.servers' = 'kafka:9092',\n" +
                 "    'scan.startup.mode' = 'earliest-offset',\n" +
                 "    'format'    = 'csv'\n" +
-                ")"
-        );
+                ")";
         //language=SQL
-        tEnv.executeSql("CREATE TABLE send_report(\n" +
-                "    account_id       BIGINT,\n" +
-                "    amount           BIGINT,\n" +
-                "    transaction_time TIMESTAMP(3)\n" +
+        String sinkDDL = "" +
+                "CREATE TABLE reports(\n" +
+                "    account_id BIGINT,\n" +
+                "    log_ts     TIMESTAMP(3),\n" +
+                "    amount     BIGINT\n," +
+                "    PRIMARY KEY (account_id, log_ts) NOT ENFORCED" +
                 ") WITH (\n" +
                 "    'connector' = 'hudi',\n" +
-                "    'path' = '/tmp/send_report',\n" +
+                "    'path' = '/tmp/reports',\n" +
                 "    'table.type' = 'MERGE_ON_READ',\n" +
-                "    'hoodie.table.name' = 'send_report',\n" +
-                "    'hoodie.datasource.write.recordkey.field' = 'account_id'\n" +
-                ")"
-        );
+                "    'hoodie.table.name' = 'reports'\n" +
+                ")";
         //language=SQL
-        tEnv.executeSql("INSERT INTO send_report SELECT account_id, amount, transaction_time FROM transactions").await();
+        String query = ""  +
+                "INSERT INTO reports " +
+                "SELECT account_id, window_start AS log_ts, SUM(amount) AS amount " +
+                " FROM TABLE( " +
+                "   TUMBLE(TABLE transactions, DESCRIPTOR(transaction_time), INTERVAL '1' HOURS)) " +
+                " GROUP BY account_id, window_start, window_end";
+
+        StreamTableEnvironment tEnv = StreamTableEnvironment.create(executionEnvironment(ParameterTool.fromArgs(args)));
+        tEnv.executeSql(sourceDDL);
+        tEnv.executeSql(sinkDDL);
+        tEnv.executeSql(query).await();
     }
 
     private static StreamExecutionEnvironment executionEnvironment(ParameterTool params) {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(8);
         if (params.has(CHECKPOINTING_OPTION)) {
             env.enableCheckpointing(1000);
         }
         return env;
-    }
-
-    private static List<String> sqlQueries() throws URISyntaxException, IOException {
-        Path path = Paths.get(Objects.requireNonNull(FlinkJob.class.getClassLoader().getResource(SQL_QUERIES_PATH)).toURI());
-        String queries = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-        return Arrays.stream(queries.split(";")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
     }
 }
