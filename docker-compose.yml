@@ -5,6 +5,8 @@ services:
     image: wurstmeister/zookeeper:3.4.6
     ports:
       - "2181:2181"
+    networks:
+      - my_network
 
   kafka:
     image: wurstmeister/kafka:2.13-2.8.1
@@ -18,12 +20,16 @@ services:
       HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_CREATE_TOPICS: "kafka:1:1"
+    networks:
+      - my_network
 
   data-generator:
     image: apache/data-generator:1
     build: ./data-generator
     depends_on:
       - kafka
+    networks:
+      - my_network
 
   flink-master:
     image: master-image
@@ -39,6 +45,8 @@ services:
       - /tmp/reports:/tmp/reports
       - /tmp/flink-checkpoints-directory:/tmp/flink-checkpoints-directory
       - /tmp/flink-savepoints-directory:/tmp/flink-savepoints-directory
+    networks:
+      - my_network
 
   flink-worker:
     image: worker-image
@@ -55,3 +63,12 @@ services:
       - /tmp/reports:/tmp/reports
       - /tmp/flink-checkpoints-directory:/tmp/flink-checkpoints-directory
       - /tmp/flink-savepoints-directory:/tmp/flink-savepoints-directory
+    networks:
+      - my_network
+
+networks:
+  my_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.80.1.0/16

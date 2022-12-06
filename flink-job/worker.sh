@@ -14,8 +14,8 @@ echo "Starting Task Manager"
 /usr/local/flink/bin/taskmanager.sh start
 
 echo "Config file: " && grep '^[^\n#]' /usr/local/flink/conf/flink-conf.yaml
-echo "Sleeping 10 seconds"
-sleep 10
+echo "Sleeping 60 seconds"
+sleep 60
 
 echo "Submitting job"
 /usr/local/flink/bin/flink run -d /usr/local/flink/flink-hudi-demo.jar --checkpointing

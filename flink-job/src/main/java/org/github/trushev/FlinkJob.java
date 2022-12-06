@@ -34,15 +34,17 @@ public class FlinkJob {
                 "    'connector' = 'hudi',\n" +
                 "    'path' = '/tmp/reports',\n" +
                 "    'table.type' = 'MERGE_ON_READ',\n" +
+                "    'metadata.enabled' = 'true',\n" +
                 "    'hoodie.table.name' = 'reports'\n" +
                 ")";
         //language=SQL
         String query = ""  +
                 "INSERT INTO reports " +
-                "SELECT account_id, window_start AS log_ts, SUM(amount) AS amount " +
-                " FROM TABLE( " +
-                "   TUMBLE(TABLE transactions, DESCRIPTOR(transaction_time), INTERVAL '1' HOURS)) " +
-                " GROUP BY account_id, window_start, window_end";
+                "SELECT account_id, transaction_time as log_ts, SUM(amount) AS amount " +
+                " FROM transactions " +
+//                " FROM TABLE( " +
+//                "   TUMBLE(TABLE transactions, DESCRIPTOR(transaction_time), INTERVAL '30' SECOND)) " +
+                " GROUP BY account_id, transaction_time";
 
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(executionEnvironment(ParameterTool.fromArgs(args)));
         tEnv.executeSql(sourceDDL);
