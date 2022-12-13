@@ -21,16 +21,22 @@ package org.apache.flink.playground.datagen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+
 /** A basic data generator for continuously writing data into a Kafka topic. */
 public class DataGenerator {
 
   private static final Logger LOG = LoggerFactory.getLogger(DataGenerator.class);
 
-  private static final String KAFKA = "kafka:9092";
+  private static String KAFKA = "localhost:9092";
 
   private static final String TOPIC = "transactions";
 
   public static void main(String[] args) {
+      if (args.length > 0) {
+          System.out.println(Arrays.toString(args));
+          KAFKA = args[0];
+      }
     Producer producer = new Producer(KAFKA, TOPIC);
 
     Runtime.getRuntime()

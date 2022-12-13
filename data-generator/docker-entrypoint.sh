@@ -15,4 +15,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-java -classpath /opt/data-generator.jar org.apache.flink.playground.datagen.DataGenerator
+#java -classpath /opt/data-generator.jar org.apache.flink.playground.datagen.DataGenerator
+java -classpath /opt/data-generator.jar org.apache.flink.playground.datagen.DataGenerator kafka:9092

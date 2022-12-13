@@ -49,7 +49,9 @@ public class Producer implements Runnable, AutoCloseable {
 
   @Override
   public void run() {
-    KafkaProducer<Long, Transaction> producer = new KafkaProducer<>(getProperties());
+    Properties properties = getProperties();
+    System.out.println(properties);
+    KafkaProducer<Long, Transaction> producer = new KafkaProducer<>(properties);
 
     Throttler throttler = new Throttler(100);
 
@@ -63,6 +65,7 @@ public class Producer implements Runnable, AutoCloseable {
 
       ProducerRecord<Long, Transaction> record =
           new ProducerRecord<>(topic, null, millis, transaction.accountId, transaction);
+//      System.out.println("" + transaction.accountId + " " + transaction.amount + " " + transaction.timestamp);
       producer.send(record);
 
       try {
