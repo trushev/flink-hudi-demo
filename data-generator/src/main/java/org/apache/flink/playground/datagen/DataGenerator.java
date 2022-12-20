@@ -32,12 +32,17 @@ public class DataGenerator {
 
   private static final String TOPIC = "transactions";
 
+  private static int RECORDS_PER_SEC = 10;
+
   public static void main(String[] args) {
       if (args.length > 0) {
           System.out.println(Arrays.toString(args));
           KAFKA = args[0];
+          if (args.length > 1) {
+              RECORDS_PER_SEC = Integer.parseInt(args[1]);
+          }
       }
-    Producer producer = new Producer(KAFKA, TOPIC);
+    Producer producer = new Producer(KAFKA, TOPIC, RECORDS_PER_SEC);
 
     Runtime.getRuntime()
         .addShutdownHook(

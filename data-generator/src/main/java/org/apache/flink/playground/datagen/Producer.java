@@ -21,12 +21,16 @@ package org.apache.flink.playground.datagen;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+
 import org.apache.flink.playground.datagen.model.Transaction;
 import org.apache.flink.playground.datagen.model.TransactionSerializer;
 import org.apache.flink.playground.datagen.model.TransactionSupplier;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
 
 /** Generates CSV transaction records at a rate */
@@ -40,10 +44,13 @@ public class Producer implements Runnable, AutoCloseable {
   private final String brokers;
 
   private final String topic;
+  private final int recordsPerSec;
+  private long recordCounter;
 
-  public Producer(String brokers, String topic) {
+  public Producer(String brokers, String topic, int recordsPerSec) {
     this.brokers = brokers;
     this.topic = topic;
+    this.recordsPerSec = recordsPerSec;
     this.isRunning = true;
   }
 
@@ -53,7 +60,7 @@ public class Producer implements Runnable, AutoCloseable {
     System.out.println(properties);
     KafkaProducer<Long, Transaction> producer = new KafkaProducer<>(properties);
 
-    Throttler throttler = new Throttler(100);
+    Throttler throttler = new Throttler(recordsPerSec);
 
     TransactionSupplier transactions = new TransactionSupplier();
 
@@ -65,8 +72,18 @@ public class Producer implements Runnable, AutoCloseable {
 
       ProducerRecord<Long, Transaction> record =
           new ProducerRecord<>(topic, null, millis, transaction.accountId, transaction);
-//      System.out.println("" + transaction.accountId + " " + transaction.amount + " " + transaction.timestamp);
-      producer.send(record);
+      Future<RecordMetadata> future = producer.send(record);
+      recordCounter++;
+      if (recordCounter == 1 || recordCounter % 1000 == 0) {
+        if (recordCounter == 1) {
+          try {
+            future.get();
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        }
+        System.out.println("Records produced: " + recordCounter);
+      }
 
       try {
         throttler.throttle();
